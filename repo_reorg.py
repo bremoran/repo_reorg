@@ -16,9 +16,8 @@ moduleJsonTemplate = '''
 {{
     "name": "{0}",
     "version": "0.0.0",
-    "description": "CMSIS-Core",
+    "description": "",
     "keywords": [
-        "cmsis"
     ],
     "author": "name <email@arm.com>",
     "repository": {{
@@ -27,7 +26,8 @@ moduleJsonTemplate = '''
     }},
     "homepage": "https://github.com/ARMmbed/{0}",
     "license": "Apache-2",
-    "dependencies": {{}},
+    "dependencies": {{
+    }},
     "extraIncludes": ["{0}"],
     "targetDependencies": {{
     }}
