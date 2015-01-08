@@ -103,16 +103,59 @@ def mkpaths(parser, paths, file):
 
     return pathmap
 
+def canCollapse(n,total):
+    return n==total
 
+def collapsePaths(opts, workroot, dpathmap):
+    # Get the origin repo directory
+    repodir = os.path.join(workroot,'origin')
+    altered = True
+    while altered:
+        for path in dpathmap:
+            realPath = os.path.join(repodir,path)
+            # Get the path's parent directory
+            parentPath = os.path.dirname(path)
+            realParentPath = os.path.dirname(realPath)
+            # Get a list of sibling directories
+            root, sibs, sibfiles = next(os.walk(realParentPath))
+            sibPaths = [os.path.relpath(os.path.join(root,x),repodir) for x in sibs]
+            sibCount = 0
+            # print 'Checking for keys in dpathmap:', sibPaths
+            for sib in sibPaths:
+                if sib in dpathmap:
+                    sibCount+=1
+            # print 'Trying to collapse {0} into {1} ({2}/{3})'.format(path,parentPath,sibCount,len(sibPaths))
+            if canCollapse(sibCount,len(sibPaths)):
+                #print 'collapsing...'
+                #Promote all siblings' children to parent children
+                if not parentPath in dpathmap:
+                    dpathmap[parentPath] = {}
+                for sib in sibPaths:
+                    if not sib in dpathmap:
+                        continue
+                    nephews = dpathmap[sib]
+                    for neph,target in nephews.iteritems():
+                        sibrel = os.path.relpath(sib,parentPath)
+                        dpathmap[parentPath][os.path.join(sibrel,neph)] = target
+                    #remove sibling from dpathmap
+                    del dpathmap[sib]
+                break
+            # else:
+                # print 'Failed to collapse {0}'.format(path)
+
+        else:
+            altered = False
+    return dpathmap
 
 def mkDistinctPaths(pathmap):
     dpathmap = {}
     # Just get the directories in sorted order
-    lp = sorted(list(set([os.path.join(*x[:-1]) for x in map(pathsplit,pathmap.keys())])))
+    lp = sorted(list(set(map(os.path.dirname,pathmap.keys()))))# [os.path.join(*x[:-1]) for x in map(pathsplit,pathmap.keys())])))
+
     for p in lp:
         for k in dpathmap:
             rp = os.path.relpath(p,k)
-            if rp[0] != '.':
+            if rp[0:2] != '..':
                 break
         else:
             dpathmap[p] = {}
@@ -120,7 +163,7 @@ def mkDistinctPaths(pathmap):
     for p,target in pathmap.iteritems():
         for k in dpathmap:
             rp = os.path.relpath(p,k)
-            if rp[0] != '.':
+            if rp[0:2] != '..':
                 dpathmap[k][rp] = target
                 break
         else:
@@ -151,9 +194,9 @@ def cloneFilter(opts, workroot, name, path):
         sys.exit(1)
     os.chdir(repodir)
     rc = subprocess.call(['git','filter-branch','-f','--prune-empty','--subdirectory-filter',path],stderr=sys.stderr,stdout=sys.stdout,stdin=sys.stdin)
-    if rc != 0:
-        print '\nFailed to filter %s, subdirectory %s'%(repodir, path)
-        sys.exit(1)
+    # if rc != 0:
+    #     print '\nFailed to filter %s, subdirectory %s'%(repodir, path)
+    #     sys.exit(1)
 
 def testCommit(repodir,msg):
     cwd = os.getcwd()
@@ -172,7 +215,7 @@ def filterRepo(opts,workroot,dpathmap):
     fragmap = {}
     i=0
     for fragment in fragments:
-        print 'Processing fragment %d/%d'%(i+1,len(fragments))
+        print 'Processing fragment %d/%d (%s)'%(i+1,len(fragments),fragment)
         repoDir = os.path.join(workroot,'origin%d'%i)
         if os.path.isdir(repoDir):
             shutil.rmtree(repoDir)
@@ -307,7 +350,6 @@ def main():
     opts = parseargs(parser)
     pathmap = mkpaths(parser, opts.path, opts.file)
     dpathmap = mkDistinctPaths(pathmap)
-
     # for k,files in dpathmap.iteritems():
     #     print '%s'%k
     #     for f,target in files.iteritems():
@@ -324,6 +366,8 @@ def main():
     os.chdir(workroot)
     # Get the origin repo
     getOrigin(opts, workroot)
+    # Collapse the distinct paths where possible
+    dpathmap = collapsePaths(opts, workroot, dpathmap)
     # Clone each fragment repo and filter for the fragment
     fragmap = filterRepo(opts, workroot, dpathmap)
 
