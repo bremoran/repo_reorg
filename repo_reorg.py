@@ -1,5 +1,6 @@
 #!/usr/bin/python
-
+# PackageLicenseDeclared: Apache-2.0
+# Copyright 2015 ARM Holdings PLC
 import argparse as ap
 import sys
 import os.path
