@@ -7,6 +7,7 @@ import os.path
 import subprocess
 import shutil
 import stat
+import re
 #Inputs:
 #Source remote
 #Destination remote
@@ -20,12 +21,12 @@ moduleJsonTemplate = '''
     "description": "",
     "keywords": [
     ],
-    "author": "name <email@arm.com>",
+    "author": "name <email@domain.tld>",
     "repository": {{
-        "url": "git@github.com:ARMmbed/{0}.git",
+        "url": "{1}",
         "type": "git"
     }},
-    "homepage": "https://github.com/ARMmbed/{0}",
+    "homepage": "{2}",
     "license": "Apache-2",
     "dependencies": {{
     }},
@@ -305,13 +306,20 @@ def mergeRepos(opts,workroot,fragmap,newRepoDir):
             sys.exit(1)
     os.chdir(workroot)
 
+def repoToHomePage(repo):
+    dnChars = '[a-zA-Z0-9_.-]'
+    webChars = '[^/]'
+    https_addr,n = re.subn('git@({0}+):(.*)[.]git'.format(dnChars,webChars),r'https://\1/\2.git',repo)
+    https_home,n = re.subn('(https://.+)[.]git$',r'\1',https_addr)
+    return https_home
+
 def addModuleJson(opts,workroot,newRepoDir):
     os.chdir(newRepoDir)
     moduleJson = os.path.join(newRepoDir,'module.json')
     if os.path.isfile(moduleJson):
         return
     f = open(moduleJson,'w')
-    f.write(moduleJsonTemplate.format(opts.name))
+    f.write(moduleJsonTemplate.format(opts.name,opts.destination,repoToHomePage(opts.destination)))
     f.close()
     rc = subprocess.call(['git','add',moduleJson],stderr=sys.stderr,stdout=sys.stdout,stdin=sys.stdin)
     if rc != 0:
