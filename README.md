@@ -57,6 +57,7 @@ optional arguments:
 ```
 ## Recovering history on a repo which has already been split
 If there is a repo which has already lost history due to a reorganization, it's possible to get it back:
+
 1. Checkout the first commit of files to the new repo
 2. Use [repo_map_gen.py](./repo_map_gen.py) to generate a mapping file
 3. Use [repo_reorg.py](./repo_reorg.py) to create a new repo with history
